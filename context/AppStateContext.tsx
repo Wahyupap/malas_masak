@@ -19,11 +19,11 @@ import {
   ActiveChef,
   ChatThread,
   CreateRequestPayload,
-  CuisineCategory,
   OpenRequest,
   OrderItem,
   OrderStatusStep,
   PaymentMethod,
+  RequestType,
   ReviewItem,
   UserProfile,
   UserRole,
@@ -45,19 +45,24 @@ import {
 
 interface AppStateContextValue {
   user: UserProfile;
+  /** Full list of active chefs (used in Buat Request -> Pilih Chef horizontal 3-row grid) */
   activeChefs: ActiveChef[];
+  /** Featured active chefs displayed on Beranda */
+  homeFeaturedChefs: ActiveChef[];
   openRequests: OpenRequest[];
   orders: OrderItem[];
   selectedOrderId: string;
   reviews: ReviewItem[];
   chatThreads: ChatThread[];
   activeThreadId: string;
-  draftCategory: CuisineCategory;
-  setDraftCategory: (cat: CuisineCategory) => void;
+  draftRequestType: RequestType;
+  draftSelectedChefId: string;
+  setDraftRequestType: (type: RequestType) => void;
+  setDraftSelectedChefId: (chefId: string) => void;
   setSelectedOrderId: (id: string) => void;
   setActiveThreadId: (id: string) => void;
   applyAuthSuccess: (params: {
-    nim: string;
+    phoneNumber: string;
     dormName?: string;
     activeRole?: UserRole;
   }) => void;
@@ -90,6 +95,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<UserProfile>(DUMMY_CURRENT_USER);
+  const [activeChefs] = useState<ActiveChef[]>(DUMMY_ACTIVE_CHEFS);
   const [openRequests, setOpenRequests] =
     useState<OpenRequest[]>(DUMMY_OPEN_REQUESTS);
   const [orders, setOrders] = useState<OrderItem[]>(DUMMY_INITIAL_ORDERS);
@@ -101,8 +107,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   const [activeThreadId, setActiveThreadId] = useState<string>(
     DUMMY_CHAT_THREADS[0].id
   );
-  const [draftCategory, setDraftCategory] =
-    useState<CuisineCategory>('Nasi & lauk');
+  const [draftRequestType, setDraftRequestType] =
+    useState<RequestType>('publik');
+  const [draftSelectedChefId, setDraftSelectedChefId] = useState<string>(
+    DUMMY_ACTIVE_CHEFS[0].id
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -113,13 +122,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const applyAuthSuccess = (params: {
-    nim: string;
+    phoneNumber: string;
     dormName?: string;
     activeRole?: UserRole;
   }) => {
     setUser((prev) => ({
       ...prev,
-      nim: params.nim,
+      phoneNumber: params.phoneNumber,
       dormName: params.dormName ?? prev.dormName,
       activeRole: params.activeRole ?? prev.activeRole,
     }));
@@ -138,10 +147,51 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const createRequest = async (payload: CreateRequestPayload) => {
     const { request, order } = await submitCookingRequest(payload, user.name);
-    setOpenRequests((prev) => [request, ...prev]);
+
+    // Public requests appear in Beranda -> Request terbuka
+    if (request) {
+      setOpenRequests((prev) => [request, ...prev]);
+      showToast(`Request publik ${order.orderCode} terkirim!`);
+    } else if (payload.selectedChef) {
+      // Direct "Pilih Chef" requests notify the selected chef in Chat as well
+      const targetChef = payload.selectedChef;
+      const existingThread = chatThreads.find(
+        (t) =>
+          t.peerName.toLowerCase() === targetChef.name.toLowerCase() ||
+          t.id === `thread-${targetChef.id}`
+      );
+
+      if (existingThread) {
+        setChatThreads((prev) =>
+          prev.map((t) =>
+            t.id === existingThread.id
+              ? {
+                  ...t,
+                  lastMessagePreview: `Request baru: ${payload.description}`,
+                  lastMessageTime: 'Baru saja',
+                  messages: [
+                    ...t.messages,
+                    {
+                      id: `msg-req-${Date.now()}`,
+                      sender: 'me',
+                      text: `Halo ${targetChef.name}, aku kirim request langsung (${order.orderCode}): ${payload.description}. Antar ke ${order.deliveryAddress}.`,
+                      timestamp: 'Baru saja',
+                      readReceipt: true,
+                    },
+                  ],
+                }
+              : t
+          )
+        );
+      }
+
+      showToast(
+        `Request ${order.orderCode} dikirim langsung ke Chef ${targetChef.name}!`
+      );
+    }
+
     setOrders((prev) => [order, ...prev]);
     setSelectedOrderId(order.id);
-    showToast(`Request ${order.orderCode} terkirim ke koki Seni Kuliner!`);
     return order;
   };
 
@@ -162,6 +212,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         avatarUrl: user.avatarUrl,
       },
       description: req.title,
+      requestType: req.requestType,
       category: req.category,
       deliveryAddress: `${req.dormName}, ${req.roomNumber}`,
       ingredientMode: req.ingredientMode,
@@ -169,7 +220,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
       receiptUploaded: false,
       receiptAmount: 0,
       chefWage: req.chefWage,
-      serviceFee: 2000,
+      serviceFee: req.requestFee,
       paymentMethod: 'Tunai',
     };
 
@@ -335,13 +386,14 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
         avatarUrl: user.avatarUrl,
       },
       description: reqCard.title,
+      requestType: 'pilih-chef',
       category: 'Nasi & lauk',
       deliveryAddress: `Dorm PIB, ${thread.peerSubtitle}`,
       ingredientMode: 'Saya sediakan',
       receiptUploaded: false,
       receiptAmount: 0,
       chefWage: reqCard.chefWage,
-      serviceFee: 2000,
+      serviceFee: 500,
       paymentMethod: 'Tunai',
     };
 
@@ -376,15 +428,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({
     <AppStateContext.Provider
       value={{
         user,
-        activeChefs: DUMMY_ACTIVE_CHEFS,
+        activeChefs,
+        homeFeaturedChefs: activeChefs.slice(0, 3),
         openRequests,
         orders,
         selectedOrderId,
         reviews: DUMMY_REVIEWS,
         chatThreads,
         activeThreadId,
-        draftCategory,
-        setDraftCategory,
+        draftRequestType,
+        draftSelectedChefId,
+        setDraftRequestType,
+        setDraftSelectedChefId,
         setSelectedOrderId,
         setActiveThreadId,
         applyAuthSuccess,

@@ -25,6 +25,7 @@ import {
 export const DUMMY_CURRENT_USER: UserProfile = {
   id: 'usr-daniel-01',
   name: 'Daniel',
+  phoneNumber: '+6288769670911',
   nim: '2024103045',
   major: 'Seni Kuliner',
   dormName: 'Dormitory 1',
@@ -38,38 +39,75 @@ export const DUMMY_CURRENT_USER: UserProfile = {
   completedOrders: 24,
 };
 
+/**
+ * All 6 active chefs available in "Buat Request -> Pilih Chef"
+ * (Home screen displays the top 3 featured active chefs).
+ */
 export const DUMMY_ACTIVE_CHEFS: ActiveChef[] = [
   {
     id: 'chef-daniel',
     name: 'Daniel',
     major: 'Seni Kuliner',
-    specialty: 'nasi & tumisan',
+    specialty: 'Nasi & tumisan',
     category: 'Nasi & lauk',
     rating: 4.9,
     completedCount: 24,
-    avatarUrl: null, // Default white & grey profile picture
+    avatarUrl: null,
     isOnline: true,
   },
   {
     id: 'chef-gwen',
     name: 'Gwen',
     major: 'Seni Kuliner',
-    specialty: 'mie & sup hangat',
+    specialty: 'Mie & sup',
     category: 'Mie & sup',
     rating: 5.0,
     completedCount: 31,
-    avatarUrl: null, // Default white & grey profile picture
+    avatarUrl: null,
     isOnline: true,
   },
   {
     id: 'chef-pedorin',
     name: 'Pedorin',
     major: 'Seni Kuliner',
-    specialty: 'menu sehat',
+    specialty: 'Menu sehat',
     category: 'Menu sehat',
     rating: 4.8,
     completedCount: 19,
-    avatarUrl: null, // Default white & grey profile picture
+    avatarUrl: null,
+    isOnline: true,
+  },
+  {
+    id: 'chef-salsa',
+    name: 'Salsa',
+    major: 'Seni Kuliner',
+    specialty: 'Camilan manis',
+    category: 'Camilan',
+    rating: 4.9,
+    completedCount: 16,
+    avatarUrl: null,
+    isOnline: true,
+  },
+  {
+    id: 'chef-raka',
+    name: 'Raka',
+    major: 'Seni Kuliner',
+    specialty: 'Lauk rumahan',
+    category: 'Nasi & lauk',
+    rating: 4.8,
+    completedCount: 21,
+    avatarUrl: null,
+    isOnline: true,
+  },
+  {
+    id: 'chef-nabila',
+    name: 'Nabila',
+    major: 'Seni Kuliner',
+    specialty: 'Pasta & grill',
+    category: 'Menu sehat',
+    rating: 4.9,
+    completedCount: 27,
+    avatarUrl: null,
     isOnline: true,
   },
 ];
@@ -77,6 +115,7 @@ export const DUMMY_ACTIVE_CHEFS: ActiveChef[] = [
 export const DUMMY_OPEN_REQUESTS: OpenRequest[] = [
   {
     id: 'req-101',
+    requestType: 'publik',
     category: 'Nasi & lauk',
     timingLabel: 'Secepatnya',
     title: 'Nasi telur dadar krispi & sambal terasi',
@@ -84,11 +123,13 @@ export const DUMMY_OPEN_REQUESTS: OpenRequest[] = [
     roomNumber: 'Kamar B204',
     ingredientMode: 'Koki yang belanja',
     chefWage: 15000,
+    requestFee: 500,
     requesterName: 'Salsa',
     createdAt: 'Baru saja',
   },
   {
     id: 'req-102',
+    requestType: 'publik',
     category: 'Mie & sup',
     timingLabel: '19:30 WIB',
     title: 'Sup ayam jahe hangat, tanpa micin',
@@ -97,11 +138,13 @@ export const DUMMY_OPEN_REQUESTS: OpenRequest[] = [
     ingredientMode: 'Saya sediakan',
     ingredientList: 'Dada ayam fillet 250g, jahe, daun bawang, wortel',
     chefWage: 18000,
+    requestFee: 500,
     requesterName: 'Rizky',
     createdAt: '5m lalu',
   },
   {
     id: 'req-103',
+    requestType: 'publik',
     category: 'Camilan',
     timingLabel: 'Secepatnya',
     title: 'Pisang goreng keju cokelat 2 porsi',
@@ -109,6 +152,7 @@ export const DUMMY_OPEN_REQUESTS: OpenRequest[] = [
     roomNumber: 'Kamar B308',
     ingredientMode: 'Koki yang belanja',
     chefWage: 12000,
+    requestFee: 500,
     requesterName: 'Bima',
     createdAt: '12m lalu',
   },
@@ -126,9 +170,10 @@ export const DUMMY_INITIAL_ORDERS: OrderItem[] = [
       name: 'Gwen',
       major: 'Seni Kuliner',
       rating: 5.0,
-      avatarUrl: null, // Default white & grey profile picture
+      avatarUrl: null,
     },
     description: 'Nasi goreng kampung, tidak pedas, tambah telur',
+    requestType: 'publik',
     category: 'Nasi & lauk',
     deliveryAddress: 'Asrama Melati, Kamar B105',
     ingredientMode: 'Koki yang belanja',

@@ -2,47 +2,55 @@
 
 import React, { useState } from 'react';
 import {
+  ActiveChef,
   CreateRequestPayload,
-  CuisineCategory,
-  IngredientMode,
+  RequestType,
   TimingOption,
 } from '../../types';
+import { DefaultAvatar } from '../DefaultAvatar';
 
 interface CreateRequestScreenProps {
-  initialCategory?: CuisineCategory;
+  activeChefs: ActiveChef[];
+  initialRequestType?: RequestType;
+  initialChefId?: string;
   onBack: () => void;
   onSubmitRequest: (payload: CreateRequestPayload) => Promise<void>;
 }
 
-const CATEGORIES: CuisineCategory[] = [
-  'Nasi & lauk',
-  'Mie & sup',
-  'Camilan',
-  'Menu sehat',
-];
+const REQUEST_FEE_RUPIAH = 500;
 
 /**
  * Screen 3: Buat Request (Create Cooking Request)
  *
  * BACKEND INTEGRATION NOTE:
  * - On form submit, call `POST /api/requests` with `CreateRequestPayload`.
+ * - When `requestType === 'publik'`, the request appears in the public open feed (`GET /api/requests?status=open`).
+ * - When `requestType === 'pilih-chef'`, route the request directly to `selectedChef.id` and notify them via Chat/WebSocket.
  * - If user picks "Foto bahan", upload image via `multipart/form-data` or pre-signed
  *   object storage URL (S3 / Supabase Storage / Cloudinary) before creating request.
- * - Escrow holds `chefWage + 2000` (biaya layanan kampus).
+ * - Escrow holds `chefWage + 500` (Pajak Unggah Request Rp 500).
  */
 export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
-  initialCategory = 'Nasi & lauk',
+  activeChefs,
+  initialRequestType = 'publik',
+  initialChefId,
   onBack,
   onSubmitRequest,
 }) => {
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<CuisineCategory>(initialCategory);
+  const [requestType, setRequestType] =
+    useState<RequestType>(initialRequestType);
+  const [selectedChefId, setSelectedChefId] = useState<string>(
+    initialChefId && activeChefs.some((c) => c.id === initialChefId)
+      ? initialChefId
+      : activeChefs[0]?.id ?? ''
+  );
   const [roomAddress, setRoomAddress] = useState('');
   const [timing, setTiming] = useState<TimingOption>('Secepatnya');
   const [scheduledTime, setScheduledTime] = useState('19:30 WIB');
-  const [ingredientMode, setIngredientMode] = useState<IngredientMode>(
-    'Koki yang belanja'
-  );
+  const [ingredientMode, setIngredientMode] = useState<
+    'Gunakan Menu Chef' | 'Saya sediakan'
+  >(initialRequestType === 'pilih-chef' ? 'Gunakan Menu Chef' : 'Saya sediakan');
   const [ingredientDetailMode, setIngredientDetailMode] = useState<
     'foto' | 'tulis'
   >('tulis');
@@ -53,6 +61,20 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
   const [chefWage, setChefWage] = useState<number>(15000);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const selectedChef =
+    activeChefs.find((c) => c.id === selectedChefId) ?? activeChefs[0];
+
+  const handleSelectRequestType = (nextType: RequestType) => {
+    setRequestType(nextType);
+    // Sync default ingredient option per new design behavior:
+    // "Pilih Chef" -> Gunakan Menu Chef; "Publik" -> Saya sediakan
+    if (nextType === 'pilih-chef') {
+      setIngredientMode('Gunakan Menu Chef');
+    } else {
+      setIngredientMode('Saya sediakan');
+    }
+  };
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,11 +92,17 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
       return;
     }
 
+    if (requestType === 'pilih-chef' && !selectedChef) {
+      setErrorMsg('Pilih salah satu chef aktif terlebih dahulu.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onSubmitRequest({
         description: description.trim(),
-        category,
+        requestType,
+        selectedChef: requestType === 'pilih-chef' ? selectedChef : undefined,
         roomAddress: roomAddress.trim() || 'Asrama Melati, Kamar B105',
         timing,
         scheduledTime: timing === 'Jadwalkan' ? scheduledTime : undefined,
@@ -85,6 +113,7 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
           ingredientMode === 'Saya sediakan' ? ingredientList : undefined,
         ingredientPhotoName: ingredientPhotoName ?? undefined,
         chefWage: Number.isFinite(chefWage) && chefWage >= 5000 ? chefWage : 15000,
+        requestFee: REQUEST_FEE_RUPIAH,
       });
     } finally {
       setIsSubmitting(false);
@@ -102,7 +131,10 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
             aria-label="Kembali ke Beranda"
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-surface-container-lowest text-on-surface border-2 border-outline transition-colors duration-state-change hover:bg-surface-container-low shrink-0 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-title-lg" aria-hidden="true">
+            <span
+              className="material-symbols-outlined text-title-lg"
+              aria-hidden="true"
+            >
               arrow_back
             </span>
           </button>
@@ -147,31 +179,87 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
               />
             </label>
 
-            {/* Jenis masakan */}
+            {/* Jenis Request */}
             <div className="flex flex-col gap-gutter-xs">
               <span className="font-label text-label-md text-on-surface">
-                Jenis masakan
+                Jenis Request
               </span>
               <div className="flex flex-wrap gap-gutter-sm">
-                {CATEGORIES.map((cat) => {
-                  const isActive = category === cat;
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => setCategory(cat)}
-                      className={`inline-flex items-center px-gutter-md py-2 rounded-full border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
-                        isActive
-                          ? 'bg-primary text-on-primary'
-                          : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
+                <button
+                  type="button"
+                  aria-pressed={requestType === 'publik'}
+                  onClick={() => handleSelectRequestType('publik')}
+                  className={`inline-flex items-center px-gutter-md py-2 rounded-full border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
+                    requestType === 'publik'
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
+                  }`}
+                >
+                  Publik
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={requestType === 'pilih-chef'}
+                  onClick={() => handleSelectRequestType('pilih-chef')}
+                  className={`inline-flex items-center px-gutter-md py-2 rounded-full border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
+                    requestType === 'pilih-chef'
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
+                  }`}
+                >
+                  Pilih Chef
+                </button>
               </div>
+
+              {/* Horizontal 3-row active chefs selector when "Pilih Chef" is active */}
+              {requestType === 'pilih-chef' && (
+                <div
+                  id="pilih-chef-section"
+                  className="mt-gutter-xs bg-surface-container-low border-2 border-outline rounded-lg p-gutter-md flex flex-col gap-gutter-sm"
+                >
+                  <div className="flex items-center justify-between gap-gutter-sm">
+                    <span className="font-label text-label-sm text-on-surface-variant">
+                      Pilih chef aktif (geser ke samping)
+                    </span>
+                    <span className="font-label text-label-sm text-secondary tabular-nums">
+                      {activeChefs.length} aktif
+                    </span>
+                  </div>
+
+                  <div className="grid grid-flow-col grid-rows-3 auto-cols-[240px] gap-gutter-sm overflow-x-auto pb-2">
+                    {activeChefs.map((chef) => {
+                      const isChefSelected = selectedChef?.id === chef.id;
+                      return (
+                        <button
+                          key={chef.id}
+                          type="button"
+                          aria-pressed={isChefSelected}
+                          onClick={() => setSelectedChefId(chef.id)}
+                          className={`flex items-center gap-gutter-sm p-2.5 rounded-lg border-2 border-outline text-left transition-colors duration-state-change cursor-pointer ${
+                            isChefSelected
+                              ? 'bg-primary-container'
+                              : 'bg-surface-container-lowest hover:bg-primary-container/60'
+                          }`}
+                        >
+                          <DefaultAvatar
+                            src={chef.avatarUrl}
+                            alt={`Foto ${chef.name}`}
+                            sizeClass="w-10 h-10"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-title text-title-sm text-on-surface truncate">
+                              {chef.name}
+                            </p>
+                            <p className="font-body text-body-sm text-on-surface-variant truncate tabular-nums">
+                              {chef.rating.toFixed(1)} ★ · {chef.specialty}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Antar ke */}
@@ -231,7 +319,7 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
               </span>
               <div className="flex flex-wrap gap-gutter-sm">
                 {(
-                  ['Koki yang belanja', 'Saya sediakan'] as IngredientMode[]
+                  ['Gunakan Menu Chef', 'Saya sediakan'] as const
                 ).map((mode) => {
                   const isActive = ingredientMode === mode;
                   return (
@@ -252,87 +340,77 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
                 })}
               </div>
 
-              {ingredientMode === 'Koki yang belanja' && (
-                <p className="font-body text-body-sm text-on-surface-variant flex items-center gap-gutter-xs pt-1">
-                  <span
-                    className="material-symbols-outlined text-title-md text-secondary"
-                    aria-hidden="true"
-                  >
-                    receipt
+              {/* Detail bahan panel when "Saya sediakan" is selected */}
+              {ingredientMode === 'Saya sediakan' && (
+                <div className="mt-gutter-xs bg-surface-container-low border-2 border-outline rounded-lg p-gutter-md flex flex-col gap-gutter-sm">
+                  <span className="font-label text-label-sm text-on-surface-variant">
+                    Detail bahan (jika Saya sediakan):
                   </span>
-                  <span>Koki wajib unggah foto nota belanja di halaman Status.</span>
-                </p>
-              )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-gutter-sm">
+                    <button
+                      type="button"
+                      onClick={() => setIngredientDetailMode('foto')}
+                      className={`inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-2.5 rounded-lg border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
+                        ingredientDetailMode === 'foto'
+                          ? 'bg-primary text-on-primary'
+                          : 'bg-surface-container-lowest text-on-surface hover:bg-primary-container'
+                      }`}
+                    >
+                      <span
+                        className="material-symbols-outlined text-title-md"
+                        aria-hidden="true"
+                      >
+                        photo_camera
+                      </span>
+                      <span>Foto bahan</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIngredientDetailMode('tulis')}
+                      className={`inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-2.5 rounded-lg border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
+                        ingredientDetailMode === 'tulis'
+                          ? 'bg-primary text-on-primary'
+                          : 'bg-surface-container-lowest text-on-surface hover:bg-primary-container'
+                      }`}
+                    >
+                      <span
+                        className="material-symbols-outlined text-title-md"
+                        aria-hidden="true"
+                      >
+                        edit_note
+                      </span>
+                      <span>Tulis daftar bahan</span>
+                    </button>
+                  </div>
 
-              {/* Opsi jika Saya sediakan (visible by default or when selected, matching reference screen) */}
-              <div className="mt-gutter-xs bg-surface-container-low border-2 border-outline rounded-lg p-gutter-md flex flex-col gap-gutter-sm">
-                <span className="font-label text-label-sm text-on-surface-variant">
-                  Detail bahan (jika Saya sediakan):
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-gutter-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIngredientMode('Saya sediakan');
-                      setIngredientDetailMode('foto');
-                    }}
-                    className={`inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-2.5 rounded-lg border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
-                      ingredientDetailMode === 'foto'
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface-container-lowest text-on-surface hover:bg-primary-container'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-title-md" aria-hidden="true">
-                      photo_camera
-                    </span>
-                    <span>Foto bahan</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIngredientMode('Saya sediakan');
-                      setIngredientDetailMode('tulis');
-                    }}
-                    className={`inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-2.5 rounded-lg border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer ${
-                      ingredientDetailMode === 'tulis'
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface-container-lowest text-on-surface hover:bg-primary-container'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-title-md" aria-hidden="true">
-                      edit_note
-                    </span>
-                    <span>Tulis daftar bahan</span>
-                  </button>
-                </div>
-
-                {ingredientDetailMode === 'tulis' ? (
-                  <textarea
-                    rows={2}
-                    value={ingredientList}
-                    onChange={(e) => setIngredientList(e.target.value)}
-                    placeholder="Tulis bahan yang tersedia. Contoh: 2 telur, nasi putih, bawang merah, kecap"
-                    className="w-full px-gutter-md py-2.5 rounded bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant border-2 border-outline font-body text-body-sm focus:border-outline focus:ring-2 focus:ring-primary focus:outline-none"
-                  />
-                ) : (
-                  <label className="flex items-center justify-between gap-gutter-sm px-gutter-md py-3 rounded bg-surface-container-lowest border-2 border-dashed border-outline cursor-pointer hover:bg-surface-container">
-                    <span className="font-body text-body-sm text-on-surface-variant truncate">
-                      {ingredientPhotoName
-                        ? `Terpilih: ${ingredientPhotoName}`
-                        : 'Pilih foto bahan makananmu (JPG/PNG)'}
-                    </span>
-                    <span className="font-label text-label-sm text-secondary shrink-0">
-                      Pilih file
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoSelect}
-                      className="sr-only"
+                  {ingredientDetailMode === 'tulis' ? (
+                    <textarea
+                      rows={2}
+                      value={ingredientList}
+                      onChange={(e) => setIngredientList(e.target.value)}
+                      placeholder="Tulis bahan yang tersedia. Contoh: 2 telur, nasi putih, bawang merah, kecap"
+                      className="w-full px-gutter-md py-2.5 rounded bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant border-2 border-outline font-body text-body-sm focus:border-outline focus:ring-2 focus:ring-primary focus:outline-none"
                     />
-                  </label>
-                )}
-              </div>
+                  ) : (
+                    <label className="flex items-center justify-between gap-gutter-sm px-gutter-md py-3 rounded bg-surface-container-lowest border-2 border-dashed border-outline cursor-pointer hover:bg-surface-container">
+                      <span className="font-body text-body-sm text-on-surface-variant truncate">
+                        {ingredientPhotoName
+                          ? `Terpilih: ${ingredientPhotoName}`
+                          : 'Pilih foto bahan makananmu (JPG/PNG)'}
+                      </span>
+                      <span className="font-label text-label-sm text-secondary shrink-0">
+                        Pilih file
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoSelect}
+                        className="sr-only"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -360,7 +438,7 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
                 />
               </div>
               <span className="font-body text-body-sm text-on-surface-variant">
-                Biaya layanan kampus Rp 2.000 · Dana ditahan aman (escrow).
+                Pajak Unggah Request Rp 500
               </span>
             </label>
 
@@ -373,7 +451,9 @@ export const CreateRequestScreen: React.FC<CreateRequestScreenProps> = ({
             </button>
 
             <p className="font-body text-body-sm text-on-surface-variant text-center">
-              Request tampil ke koki Seni Kuliner di kampusmu.
+              {requestType === 'pilih-chef' && selectedChef
+                ? `Request dikirim langsung ke Chef ${selectedChef.name}.`
+                : 'Request tampil ke koki Seni Kuliner di kampusmu.'}
             </p>
           </div>
         </form>

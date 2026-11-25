@@ -1,12 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  ActiveChef,
-  CuisineCategory,
-  OpenRequest,
-  UserRole,
-} from '../../types';
+import React from 'react';
+import { ActiveChef, OpenRequest, UserRole } from '../../types';
 import { DefaultAvatar } from '../DefaultAvatar';
 
 interface HomeScreenProps {
@@ -14,28 +9,26 @@ interface HomeScreenProps {
   onChangeRole: (role: UserRole) => void;
   activeChefs: ActiveChef[];
   openRequests: OpenRequest[];
-  onGoCreateRequest: (initialCategory?: CuisineCategory) => void;
+  onGoCreateRequest: () => void;
   onChatWithChef: (chef: ActiveChef) => void;
   onClaimRequest: (request: OpenRequest) => void;
 }
 
-const CATEGORIES: CuisineCategory[] = [
-  'Nasi & lauk',
-  'Mie & sup',
-  'Camilan',
-  'Menu sehat',
-];
-
 const formatRupiah = (amount: number) =>
   `Rp ${amount.toLocaleString('id-ID')}`;
+
+const formatIngredientSummary = (mode: OpenRequest['ingredientMode']) => {
+  if (mode === 'Koki yang belanja') return 'Koki belanja';
+  if (mode === 'Gunakan Menu Chef') return 'Menu chef';
+  return 'Bahan tersedia';
+};
 
 /**
  * Screen 2: Beranda (Home Feed)
  *
  * BACKEND INTEGRATION NOTE:
- * - Fetch `activeChefs` from `GET /api/chefs/active`
- * - Fetch `openRequests` from `GET /api/requests?status=open`
- * - Filter dynamically via query params or client-side memoization
+ * - Fetch `activeChefs` from `GET /api/chefs/active?limit=3`
+ * - Fetch `openRequests` from `GET /api/requests?status=open&type=publik`
  * - `onClaimRequest` should trigger `POST /api/requests/:id/accept`
  */
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -47,30 +40,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onChatWithChef,
   onClaimRequest,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<CuisineCategory | null>(
-    'Nasi & lauk'
-  );
-  const [showAllFiltered, setShowAllFiltered] = useState(true);
-
-  const handleCategoryClick = (cat: CuisineCategory) => {
-    if (selectedCategory === cat && !showAllFiltered) {
-      setShowAllFiltered(true);
-    } else {
-      setSelectedCategory(cat);
-      setShowAllFiltered(false);
-    }
-  };
-
-  const displayedChefs =
-    !showAllFiltered && selectedCategory
-      ? activeChefs.filter((c) => c.category === selectedCategory)
-      : activeChefs;
-
-  const displayedRequests =
-    !showAllFiltered && selectedCategory
-      ? openRequests.filter((r) => r.category === selectedCategory)
-      : openRequests;
-
   return (
     <main className="flex-1 max-w-6xl w-full mx-auto px-gutter-md sm:px-gutter-lg lg:px-gutter-xl py-gutter-lg lg:py-gutter-xl flex flex-col gap-gutter-xl">
       {/* Top Grid: Hero + Cara Kerjanya on Desktop */}
@@ -89,13 +58,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center gap-gutter-md">
             <button
               type="button"
-              onClick={() => onGoCreateRequest(selectedCategory ?? 'Nasi & lauk')}
+              onClick={onGoCreateRequest}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-gutter-sm px-gutter-xl py-3.5 rounded-lg bg-secondary text-on-secondary border-2 border-outline font-headline text-label-lg transition-transform duration-state-change ease-state-change hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-outline cursor-pointer whitespace-nowrap"
             >
               <span>Minta masakin</span>
             </button>
 
-            <div className="flex items-center gap-gutter-sm" role="group" aria-label="Pilih peran">
+            <div
+              className="flex items-center gap-gutter-sm"
+              role="group"
+              aria-label="Pilih peran"
+            >
               <button
                 type="button"
                 aria-pressed={activeRole === 'pemesan'}
@@ -120,44 +93,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               >
                 Saya koki
               </button>
-            </div>
-          </div>
-
-          {/* Category Filter Chips */}
-          <div className="flex flex-col gap-gutter-sm pt-gutter-sm">
-            <div className="flex items-center justify-between gap-gutter-sm">
-              <h2 className="font-headline text-headline-sm text-on-surface">
-                Mau dimasakin apa?
-              </h2>
-              {!showAllFiltered && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllFiltered(true)}
-                  className="font-label text-label-sm text-secondary hover:underline cursor-pointer"
-                >
-                  Tampilkan semua
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-gutter-sm">
-              {CATEGORIES.map((category) => {
-                const isSelected = selectedCategory === category;
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => handleCategoryClick(category)}
-                    className={`inline-flex items-center justify-center px-gutter-md py-2 rounded-full border-2 border-outline font-label text-label-md transition-colors duration-state-change cursor-pointer whitespace-nowrap ${
-                      isSelected
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-low'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </section>
@@ -202,22 +137,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {activeRole === 'koki' ? (
         <>
           <OpenRequestsSection
-            requests={displayedRequests}
+            requests={openRequests}
             onClaimRequest={onClaimRequest}
           />
           <ActiveChefsSection
-            chefs={displayedChefs}
+            chefs={activeChefs}
             onChatWithChef={onChatWithChef}
           />
         </>
       ) : (
         <>
           <ActiveChefsSection
-            chefs={displayedChefs}
+            chefs={activeChefs}
             onChatWithChef={onChatWithChef}
           />
           <OpenRequestsSection
-            requests={displayedRequests}
+            requests={openRequests}
             onClaimRequest={onClaimRequest}
           />
         </>
@@ -247,7 +182,7 @@ const ActiveChefsSection: React.FC<ActiveChefsSectionProps> = ({
 
     {chefs.length === 0 ? (
       <div className="bg-surface-container-lowest border-2 border-outline rounded-lg p-gutter-md text-center font-body text-body-md text-on-surface-variant">
-        Belum ada koki aktif untuk kategori ini. Coba tampilkan semua kategori.
+        Belum ada koki aktif saat ini.
       </div>
     ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter-md items-stretch">
@@ -349,9 +284,7 @@ const OpenRequestsSection: React.FC<OpenRequestsSectionProps> = ({
               </h3>
               <p className="font-body text-body-sm text-on-surface-variant">
                 {req.dormName} · {req.roomNumber} ·{' '}
-                {req.ingredientMode === 'Koki yang belanja'
-                  ? 'Koki belanja'
-                  : 'Bahan tersedia'}
+                {formatIngredientSummary(req.ingredientMode)}
               </p>
             </div>
             <footer className="flex items-center justify-between gap-gutter-sm pt-gutter-xs border-t border-outline-variant">

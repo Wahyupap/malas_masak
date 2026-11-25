@@ -6,14 +6,25 @@ import { useAppState } from '../../context/AppStateContext';
 
 /**
  * Route: /buat-request (Buat Request)
+ *
+ * BACKEND INTEGRATION NOTE:
+ * Pass server-fetched `activeChefs` here or hydrate from `GET /api/chefs/active`
+ * so the "Pilih Chef" 3-row horizontal selector always reflects real online chefs.
  */
 export default function CreateRequestPage() {
   const router = useRouter();
-  const { draftCategory, createRequest } = useAppState();
+  const {
+    activeChefs,
+    draftRequestType,
+    draftSelectedChefId,
+    createRequest,
+  } = useAppState();
 
   return (
     <CreateRequestScreen
-      initialCategory={draftCategory}
+      activeChefs={activeChefs}
+      initialRequestType={draftRequestType}
+      initialChefId={draftSelectedChefId}
       onBack={() => router.push('/')}
       onSubmitRequest={async (payload) => {
         await createRequest(payload);

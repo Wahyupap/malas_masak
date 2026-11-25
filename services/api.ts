@@ -12,11 +12,12 @@ import {
  * Frontend-to-Backend Integration Service Layer — malas masak
  *
  * HOW TO INTEGRATE WITH NEXT.JS BACKEND (App Router Route Handlers or REST API):
- * 1. Create Next.js API Route Handlers under `src/app/api/...` (or `app/api/...`):
- *    - POST   /api/auth/login          -> Verify NIM against campus PIB database + check password
+ * 1. Create Next.js API Route Handlers under `src/app/api/...`:
+ *    - POST   /api/auth/login          -> Verify student phone number + password
  *    - POST   /api/auth/register       -> Create student account (with optional chef verification)
- *    - GET    /api/requests            -> List open cooking requests (filter by category / dorm)
- *    - POST   /api/requests            -> Create a new cooking request & hold escrow funds
+ *    - GET    /api/chefs/active        -> Fetch active culinary students for Home & Buat Request -> Pilih Chef
+ *    - GET    /api/requests            -> List open public cooking requests
+ *    - POST   /api/requests            -> Create a new request (Publik or Pilih Chef) + Pajak Unggah Request Rp 500
  *    - POST   /api/requests/:id/accept -> Chef claims an open request -> creates an active Order
  *    - GET    /api/orders/active       -> Fetch active orders for current user/chef
  *    - PATCH  /api/orders/:id/status   -> Advance 4-step tracker (1 -> 2 -> 3 -> 4)
@@ -25,17 +26,14 @@ import {
  *    - PATCH  /api/profile             -> Update dorm room number or active role (pemesan/koki)
  *    - GET    /api/chats               -> List threads for logged-in user
  *    - POST   /api/chats/:id/messages  -> Send chat message (or connect WebSocket/Pusher/Supabase Realtime)
- *
- * 2. Replace the simulated async helpers below with real `fetch('/api/...')` calls.
- *    Example is included inside each function comment.
  */
 
 const SIMULATED_NETWORK_DELAY_MS = 180;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function loginWithNim(params: {
-  nim: string;
+export async function loginWithPhone(params: {
+  phoneNumber: string;
   password: string;
 }): Promise<{ ok: boolean; user?: Partial<UserProfile>; error?: string }> {
   /*
@@ -49,19 +47,19 @@ export async function loginWithNim(params: {
     return { ok: true, user: await res.json() };
   */
   await wait(SIMULATED_NETWORK_DELAY_MS);
-  if (!params.nim.trim()) {
-    return { ok: false, error: 'Masukkan NIM mahasiswa terlebih dahulu.' };
+  if (!params.phoneNumber.trim()) {
+    return { ok: false, error: 'Masukkan nomor HP mahasiswa terlebih dahulu.' };
   }
   return {
     ok: true,
     user: {
-      nim: params.nim.trim(),
+      phoneNumber: params.phoneNumber.trim(),
     },
   };
 }
 
 export async function registerAccount(params: {
-  nim: string;
+  phoneNumber: string;
   password: string;
   dormName: string;
   initialRole: UserRole;
@@ -76,13 +74,13 @@ export async function registerAccount(params: {
     return await res.json();
   */
   await wait(SIMULATED_NETWORK_DELAY_MS);
-  if (!params.nim.trim() || !params.password.trim()) {
-    return { ok: false, error: 'NIM dan kata sandi wajib diisi.' };
+  if (!params.phoneNumber.trim() || !params.password.trim()) {
+    return { ok: false, error: 'Nomor HP dan kata sandi wajib diisi.' };
   }
   return {
     ok: true,
     user: {
-      nim: params.nim.trim(),
+      phoneNumber: params.phoneNumber.trim(),
       dormName: params.dormName,
       activeRole: params.initialRole,
     },
@@ -92,10 +90,12 @@ export async function registerAccount(params: {
 export async function submitCookingRequest(
   payload: CreateRequestPayload,
   requesterName: string
-): Promise<{ request: OpenRequest; order: OrderItem }> {
+): Promise<{ request: OpenRequest | null; order: OrderItem }> {
   /*
     BACKEND INTEGRATION EXAMPLE (Next.js Route Handler: POST /api/requests):
-    // If payload includes an ingredient photo File, send FormData instead of JSON.
+    // Send payload including `requestType` ('publik' | 'pilih-chef'), `selectedChefId`,
+    // `ingredientMode` ('Gunakan Menu Chef' | 'Saya sediakan'), and `requestFee` (500).
+    // If `ingredientPhotoName` has a File, use multipart/form-data.
     const res = await fetch('/api/requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,19 +113,26 @@ export async function submitCookingRequest(
       ? payload.scheduledTime
       : 'Secepatnya';
 
-  const request: OpenRequest = {
-    id: newReqId,
-    category: payload.category,
-    timingLabel,
-    title: payload.description.trim(),
-    dormName: 'Dorm PIB',
-    roomNumber: payload.roomAddress.trim() || 'Kamar B105',
-    ingredientMode: payload.ingredientMode,
-    ingredientList: payload.ingredientList,
-    chefWage: payload.chefWage,
-    requesterName,
-    createdAt: 'Baru saja',
-  };
+  const isDirectChef =
+    payload.requestType === 'pilih-chef' && Boolean(payload.selectedChef);
+
+  const request: OpenRequest | null = isDirectChef
+    ? null
+    : {
+        id: newReqId,
+        requestType: payload.requestType,
+        category: 'Nasi & lauk',
+        timingLabel,
+        title: payload.description.trim(),
+        dormName: 'Dorm PIB',
+        roomNumber: payload.roomAddress.trim() || 'Kamar B105',
+        ingredientMode: payload.ingredientMode,
+        ingredientList: payload.ingredientList,
+        chefWage: payload.chefWage,
+        requestFee: payload.requestFee,
+        requesterName,
+        createdAt: 'Baru saja',
+      };
 
   const order: OrderItem = {
     id: `ord-${Date.now()}`,
@@ -134,24 +141,33 @@ export async function submitCookingRequest(
       payload.timing === 'Jadwalkan' && payload.scheduledTime
         ? payload.scheduledTime
         : '20:00 WIB',
-    step: 1, // 1 = Request terkirim
+    step: isDirectChef ? 2 : 1, // Direct chef requests route straight to chosen chef
     isDeliveredConfirmed: false,
-    chef: {
-      id: 'chef-pending',
-      name: 'Menunggu Koki',
-      major: 'Seni Kuliner',
-      rating: 4.9,
-      avatarUrl: null,
-    },
+    chef: payload.selectedChef
+      ? {
+          id: payload.selectedChef.id,
+          name: payload.selectedChef.name,
+          major: payload.selectedChef.major,
+          rating: payload.selectedChef.rating,
+          avatarUrl: payload.selectedChef.avatarUrl,
+        }
+      : {
+          id: 'chef-pending',
+          name: 'Menunggu Koki',
+          major: 'Seni Kuliner',
+          rating: 4.9,
+          avatarUrl: null,
+        },
     description: payload.description.trim(),
-    category: payload.category,
+    requestType: payload.requestType,
+    category: payload.selectedChef?.category ?? 'Nasi & lauk',
     deliveryAddress: payload.roomAddress.trim() || 'Asrama Melati, Kamar B105',
     ingredientMode: payload.ingredientMode,
     ingredientNotes: payload.ingredientList,
     receiptUploaded: false,
     receiptAmount: 0,
     chefWage: payload.chefWage,
-    serviceFee: 2000,
+    serviceFee: payload.requestFee, // Pajak Unggah Request Rp 500
     paymentMethod: 'Tunai',
   };
 
@@ -162,14 +178,6 @@ export async function updateOrderStep(
   orderId: string,
   nextStep: OrderStatusStep
 ): Promise<{ ok: boolean; orderId: string; step: OrderStatusStep }> {
-  /*
-    BACKEND INTEGRATION EXAMPLE (PATCH /api/orders/:id/status):
-    await fetch(`/api/orders/${orderId}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step: nextStep }),
-    });
-  */
   await wait(100);
   return { ok: true, orderId, step: nextStep };
 }
@@ -178,14 +186,6 @@ export async function updatePaymentMethod(
   orderId: string,
   paymentMethod: PaymentMethod
 ): Promise<{ ok: boolean }> {
-  /*
-    BACKEND INTEGRATION EXAMPLE (PATCH /api/orders/:id/payment):
-    await fetch(`/api/orders/${orderId}/payment`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentMethod }),
-    });
-  */
   await wait(80);
   void orderId;
   void paymentMethod;
@@ -196,15 +196,6 @@ export async function confirmOrderReceived(
   orderId: string,
   rating?: number
 ): Promise<{ ok: boolean }> {
-  /*
-    BACKEND INTEGRATION EXAMPLE (PATCH /api/orders/:id/confirm):
-    // Releases escrow funds to the chef and records optional star rating
-    await fetch(`/api/orders/${orderId}/confirm`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating }),
-    });
-  */
   await wait(SIMULATED_NETWORK_DELAY_MS);
   void orderId;
   void rating;

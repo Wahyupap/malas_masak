@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { loginWithNim, registerAccount } from '../../services/api';
+import { loginWithPhone, registerAccount } from '../../services/api';
 import { UserRole } from '../../types';
 import { MascotLogo } from '../MascotLogo';
 
 interface AuthScreenProps {
   onSuccessAuth: (params: {
-    nim: string;
+    phoneNumber: string;
     dormName?: string;
     activeRole?: UserRole;
   }) => void;
@@ -17,13 +17,14 @@ interface AuthScreenProps {
  * Screen 1: Masuk / Daftar (Authentication)
  *
  * BACKEND INTEGRATION NOTE (Next.js App Router):
- * - Wire `handleSubmit` to `POST /api/auth/login` or `POST /api/auth/register`.
+ * - Wire `handleSubmit` to `POST /api/auth/login` or `POST /api/auth/register`
+ *   using student phone number (`phoneNumber`) and password.
  * - Store session via HTTP-only JWT cookie or NextAuth.js / Auth.js session.
  * - Redirect authenticated users to `/` (`Beranda`) via `router.push('/')`.
  */
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
   const [mode, setMode] = useState<'masuk' | 'daftar'>('masuk');
-  const [nim, setNim] = useState('2024103045');
+  const [phoneNumber, setPhoneNumber] = useState('+6288769670911');
   const [password, setPassword] = useState('********');
   const [showPassword, setShowPassword] = useState(false);
   const [dormName, setDormName] = useState('Dorm Melati');
@@ -38,15 +39,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
 
     try {
       if (mode === 'masuk') {
-        const res = await loginWithNim({ nim, password });
+        const res = await loginWithPhone({ phoneNumber, password });
         if (!res.ok) {
-          setErrorMsg(res.error ?? 'Gagal masuk. Periksa kembali NIM & kata sandi.');
+          setErrorMsg(
+            res.error ?? 'Gagal masuk. Periksa kembali Nomor HP & kata sandi.'
+          );
           return;
         }
-        onSuccessAuth({ nim: res.user?.nim ?? nim });
+        onSuccessAuth({ phoneNumber: res.user?.phoneNumber ?? phoneNumber });
       } else {
         const res = await registerAccount({
-          nim,
+          phoneNumber,
           password,
           dormName,
           initialRole,
@@ -56,7 +59,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
           return;
         }
         onSuccessAuth({
-          nim: res.user?.nim ?? nim,
+          phoneNumber: res.user?.phoneNumber ?? phoneNumber,
           dormName: res.user?.dormName ?? dormName,
           activeRole: res.user?.activeRole ?? initialRole,
         });
@@ -90,32 +93,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
             Malas masak? Biar temanmu yang masakin.
           </h1>
           <p className="font-body text-body-lg text-on-surface-variant text-pretty max-w-prose">
-            Masuk pakai NIM kampusmu untuk pesan makanan dari mahasiswa Seni Kuliner atau ambil request masak.
+            Masuk pakai Nomor HPmu untuk pesan makanan dari mahasiswa Seni Kuliner atau ambil request masak.
           </p>
 
           <ul className="hidden lg:flex flex-col gap-gutter-sm pt-gutter-xs">
             <li className="flex items-center gap-gutter-sm">
-              <span className="material-symbols-outlined text-title-md text-secondary" aria-hidden="true">
-                verified_user
-              </span>
-              <span className="font-body text-body-md text-on-surface">
-                Terverifikasi NIM database kampus (PIB)
-              </span>
-            </li>
-            <li className="flex items-center gap-gutter-sm">
-              <span className="material-symbols-outlined text-title-md text-secondary" aria-hidden="true">
+              <span
+                className="material-symbols-outlined text-title-md text-secondary"
+                aria-hidden="true"
+              >
                 lock
               </span>
               <span className="font-body text-body-md text-on-surface">
                 Pembayaran escrow aman sampai makanan tiba
-              </span>
-            </li>
-            <li className="flex items-center gap-gutter-sm">
-              <span className="material-symbols-outlined text-title-md text-secondary" aria-hidden="true">
-                receipt
-              </span>
-              <span className="font-body text-body-md text-on-surface">
-                Nota belanja bahan transparan di halaman Status
               </span>
             </li>
           </ul>
@@ -174,22 +164,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-gutter-md">
-              {/* NIM */}
+              {/* Nomor HP */}
               <label className="flex flex-col gap-gutter-xs">
                 <span className="font-label text-label-md text-on-surface">
-                  NIM mahasiswa
+                  Nomor HP mahasiswa
                 </span>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  value={nim}
-                  onChange={(e) => setNim(e.target.value)}
-                  placeholder="Contoh: 2024103045"
+                  type="tel"
+                  inputMode="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Contoh: +6288769670911"
                   className="w-full px-gutter-md py-3 rounded bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant border-2 border-outline font-body text-body-md tabular-nums focus:border-outline focus:ring-2 focus:ring-primary focus:outline-none"
                 />
-                <span className="font-body text-body-sm text-on-surface-variant">
-                  Diverifikasi otomatis dari database kampus (PIB).
-                </span>
               </label>
 
               {/* Password */}
@@ -208,10 +195,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccessAuth }) => {
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                    aria-label={
+                      showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'
+                    }
                     className="absolute right-3 text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center justify-center"
                   >
-                    <span className="material-symbols-outlined text-title-md" aria-hidden="true">
+                    <span
+                      className="material-symbols-outlined text-title-md"
+                      aria-hidden="true"
+                    >
                       {showPassword ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>

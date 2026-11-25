@@ -224,6 +224,11 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({
               <p className="text-on-surface-variant">
                 Bahan: {activeOrder.ingredientMode}
               </p>
+              {activeOrder.ingredientNotes && (
+                <p className="text-on-surface-variant text-body-sm">
+                  Daftar bahan: {activeOrder.ingredientNotes}
+                </p>
+              )}
             </div>
 
             <div className="border-t-2 border-outline-variant pt-gutter-sm mt-1 flex flex-col gap-1.5">
@@ -269,7 +274,9 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-body text-body-md text-on-surface">
-                  Biaya layanan
+                  {activeOrder.serviceFee === 500
+                    ? 'Pajak unggah request'
+                    : 'Biaya layanan'}
                 </span>
                 <span className="font-body text-body-md text-on-surface tabular-nums">
                   {formatRupiah(activeOrder.serviceFee)}

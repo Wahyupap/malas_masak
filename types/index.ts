@@ -16,6 +16,8 @@ export type ScreenName =
 
 export type UserRole = 'pemesan' | 'koki';
 
+export type RequestType = 'publik' | 'pilih-chef';
+
 export type CuisineCategory =
   | 'Nasi & lauk'
   | 'Mie & sup'
@@ -24,7 +26,10 @@ export type CuisineCategory =
 
 export type TimingOption = 'Secepatnya' | 'Jadwalkan';
 
-export type IngredientMode = 'Koki yang belanja' | 'Saya sediakan';
+export type IngredientMode =
+  | 'Gunakan Menu Chef'
+  | 'Saya sediakan'
+  | 'Koki yang belanja';
 
 export type PaymentMethod = 'Tunai' | 'QRIS' | 'E-wallet';
 
@@ -39,6 +44,7 @@ export type OrderStatusStep = 1 | 2 | 3 | 4;
 export interface UserProfile {
   id: string;
   name: string;
+  phoneNumber: string;
   nim: string;
   major: string;
   dormName: string;
@@ -68,6 +74,9 @@ export interface ActiveChef {
 
 export interface OpenRequest {
   id: string;
+  requestType: RequestType;
+  targetChefId?: string;
+  targetChefName?: string;
   category: CuisineCategory;
   timingLabel: string;
   title: string;
@@ -77,6 +86,7 @@ export interface OpenRequest {
   ingredientList?: string;
   ingredientPhotoPreview?: string;
   chefWage: number;
+  requestFee: number;
   requesterName: string;
   createdAt: string;
 }
@@ -95,6 +105,7 @@ export interface OrderItem {
     avatarUrl: string | null;
   };
   description: string;
+  requestType?: RequestType;
   category: CuisineCategory;
   deliveryAddress: string;
   ingredientMode: IngredientMode;
@@ -155,13 +166,15 @@ export interface ChatThread {
 
 export interface CreateRequestPayload {
   description: string;
-  category: CuisineCategory;
+  requestType: RequestType;
+  selectedChef?: ActiveChef;
   roomAddress: string;
   timing: TimingOption;
   scheduledTime?: string;
-  ingredientMode: IngredientMode;
+  ingredientMode: 'Gunakan Menu Chef' | 'Saya sediakan';
   ingredientDetailMode?: 'foto' | 'tulis';
   ingredientList?: string;
   ingredientPhotoName?: string;
   chefWage: number;
+  requestFee: number;
 }
