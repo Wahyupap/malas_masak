@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Design System Tokens — malas masak (Next.js App Router + Tailwind CSS v4)
+*/
+@theme {
+  /* Brand & Semantic Colors */
+  --color-krim-nasi: #FFF6E5;
+  --color-oranye-sambal: #F28C4A;
+  --color-cokelat-kopi: #2B1B14;
+  --color-hijau-daun: #2F7D4F;
+
+  --color-primary: #F28C4A;
+  --color-on-primary: #2B1B14;
+  --color-primary-container: #FFDBC9;
+  --color-on-primary-container: #321200;
+
+  --color-secondary: #2F7D4F;
+  --color-on-secondary: #FFFFFF;
+  --color-secondary-container: #C2FFD1;
+  --color-on-secondary-container: #00210E;
+
+  --color-surface: #FFF6E5;
+  --color-on-surface: #2B1B14;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #F9F0DF;
+  --color-surface-container: #F5E9D3;
+  --color-surface-container-high: #EAE2D1;
+  --color-on-surface-variant: #554339;
+
+  --color-outline: #2B1B14;
+  --color-outline-variant: #DBC1B4;
+
+  --color-success: #2F7D4F;
+  --color-on-success: #FFFFFF;
+  --color-success-container: #C2FFD1;
+  --color-on-success-container: #00210E;
+
+  --color-warning: #994705;
+  --color-on-warning: #FFFFFF;
+  --color-warning-container: #FFEDE5;
+  --color-on-warning-container: #321200;
+
+  --color-error: #BA1A1A;
+  --color-on-error: #FFFFFF;
+  --color-error-container: #FFDAD6;
+  --color-on-error-container: #410002;
+
+  /* Spacing Gutters */
+  --spacing-gutter-xs: 4px;
+  --spacing-gutter-sm: 8px;
+  --spacing-gutter-md: 16px;
+  --spacing-gutter-lg: 24px;
+  --spacing-gutter-xl: 32px;
+  --spacing-section: 40px;
+  --spacing-page-margin: 16px;
+
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Font Families */
+  --font-display: "Fredoka", sans-serif;
+  --font-headline: "Fredoka", sans-serif;
+  --font-title: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  /* Typography Scale */
+  --text-display-lg: 40px;
+  --text-display-lg--line-height: 46px;
+  --text-display-lg--letter-spacing: -0.5px;
+  --text-display-lg--font-weight: 600;
+
+  --text-display-lg-mobile: 30px;
+  --text-display-lg-mobile--line-height: 36px;
+  --text-display-lg-mobile--letter-spacing: -0.25px;
+  --text-display-lg-mobile--font-weight: 600;
+
+  --text-headline-lg: 34px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.25px;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile: 26px;
+  --text-headline-lg-mobile--line-height: 32px;
+  --text-headline-lg-mobile--letter-spacing: -0.25px;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 30px;
+  --text-headline-md--letter-spacing: 0px;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 20px;
+  --text-headline-sm--line-height: 26px;
+  --text-headline-sm--letter-spacing: 0px;
+  --text-headline-sm--font-weight: 600;
+
+  --text-title-lg: 18px;
+  --text-title-lg--line-height: 24px;
+  --text-title-lg--letter-spacing: 0px;
+  --text-title-lg--font-weight: 600;
+
+  --text-title-md: 16px;
+  --text-title-md--line-height: 22px;
+  --text-title-md--letter-spacing: 0px;
+  --text-title-md--font-weight: 600;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+  --text-body-lg--letter-spacing: 0px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+  --text-body-md--letter-spacing: 0px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 18px;
+  --text-body-sm--letter-spacing: 0px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-lg: 16px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--letter-spacing: 0px;
+  --text-label-lg--font-weight: 500;
+
+  --text-label-md: 14px;
+  --text-label-md--line-height: 18px;
+  --text-label-md--letter-spacing: 0px;
+  --text-label-md--font-weight: 600;
+
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0px;
+  --text-label-sm--font-weight: 500;
+
+  /* Motion Tokens */
+  --transition-duration-state-change: 120ms;
+  --transition-duration-surface-enter: 220ms;
+  --transition-duration-surface-exit: 150ms;
+  --ease-state-change: ease-out;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.material-symbols-outlined,
+.material-symbols-rounded,
+.material-symbols-sharp,
+.material-icons {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  line-height: 1 !important;
+  box-sizing: content-box;
+  overflow: hidden;
+  white-space: nowrap;
+  direction: ltr;
+  vertical-align: middle;
 }
